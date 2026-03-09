@@ -5,12 +5,31 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "semantic-scholar-skills"
 version = "0.1.0"
-description = "Semantic Scholar core client plus MCP adapters and HTTP bridge."
+description = "Semantic Scholar research workflows, self-contained skill bundles, and MCP/HTTP interfaces."
 readme = "README.md"
 requires-python = ">=3.10"
 license = { file = "LICENSE" }
 authors = [
   { name = "Yuzongmin Yu" },
+]
+keywords = [
+  "semantic-scholar",
+  "mcp",
+  "research-workflows",
+  "citation-analysis",
+  "claude-skills",
+]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Intended Audience :: Developers",
+  "Intended Audience :: Science/Research",
+  "License :: OSI Approved :: MIT License",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Topic :: Scientific/Engineering :: Information Analysis",
+  "Topic :: Software Development :: Libraries :: Python Modules",
 ]
 dependencies = [
   "httpx>=0.24.0",
@@ -29,6 +48,11 @@ test = [
 [project.urls]
 Homepage = "https://github.com/zongmin-yu/semantic-scholar-skills"
 Repository = "https://github.com/zongmin-yu/semantic-scholar-skills"
+Issues = "https://github.com/zongmin-yu/semantic-scholar-skills/issues"
+Changelog = "https://github.com/zongmin-yu/semantic-scholar-skills/blob/main/CHANGELOG.md"
+
+[project.scripts]
+semantic-scholar-skills-mcp = "semantic_scholar_skills.mcp.server:main"
 
 [tool.setuptools]
 package-dir = {"" = "src"}
