@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import asyncio
 from pathlib import Path
 import sys
 
@@ -18,7 +19,7 @@ def _configure_path() -> None:
 
 _configure_path()
 
-from _shared.launcher import dumps_payload, launch
+from _shared.launcher import dumps_payload, error_payload, load_runtime, success_payload
 
 WORKFLOW = "expand-references"
 
@@ -70,17 +71,59 @@ def build_parser() -> argparse.ArgumentParser:
 
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
-    outcome = launch(
-        WORKFLOW,
-        seeds=args.seeds,
-        negative_seeds=args.negative_seeds,
-        api_key_override=args.api_key_override,
-        recommendation_pool=args.recommendation_pool,
-        recommendation_limit=args.recommendation_limit,
-        per_bucket_limit=args.per_bucket_limit,
+    workflow_kwargs = {
+        "seeds": args.seeds,
+        "negative_seeds": args.negative_seeds,
+        "api_key_override": args.api_key_override,
+        "recommendation_pool": args.recommendation_pool,
+        "recommendation_limit": args.recommendation_limit,
+        "per_bucket_limit": args.per_bucket_limit,
+    }
+
+    try:
+        runtime_mode, runtime_module = load_runtime()
+    except Exception as exc:
+        print(
+            dumps_payload(
+                error_payload(
+                    WORKFLOW,
+                    runtime_mode="unavailable",
+                    runtime_module=None,
+                    arguments=workflow_kwargs,
+                    exc=exc,
+                )
+            )
+        )
+        return 1
+
+    try:
+        result = asyncio.run(runtime_module.run_expand_references(**workflow_kwargs))
+    except Exception as exc:
+        print(
+            dumps_payload(
+                error_payload(
+                    WORKFLOW,
+                    runtime_mode=runtime_mode,
+                    runtime_module=runtime_module,
+                    arguments=workflow_kwargs,
+                    exc=exc,
+                )
+            )
+        )
+        return 1
+
+    print(
+        dumps_payload(
+            success_payload(
+                WORKFLOW,
+                runtime_mode=runtime_mode,
+                runtime_module=runtime_module,
+                arguments=workflow_kwargs,
+                result=result,
+            )
+        )
     )
-    print(dumps_payload(outcome.payload))
-    return outcome.exit_code
+    return 0
 
 
 if __name__ == "__main__":

@@ -37,11 +37,13 @@ def test_bundle_script_materializes_expected_skill_tree(tmp_path) -> None:
     assert completed.returncode == 0, completed.stderr
     for skill_name in SKILL_NAMES:
         skill_dir = output_dir / skill_name
-        assert (skill_dir / "SKILL.md").is_file()
+        skill_doc = skill_dir / "SKILL.md"
+        run_script = skill_dir / "scripts" / "run.py"
+        assert skill_doc.is_file()
         assert (skill_dir / "reference.md").is_file()
         assert (skill_dir / "examples.md").is_file()
         assert (skill_dir / "output_contract.md").is_file()
-        assert (skill_dir / "scripts" / "run.py").is_file()
+        assert run_script.is_file()
         assert (skill_dir / "scripts" / "_shared" / "launcher.py").is_file()
         assert (
             skill_dir
@@ -51,6 +53,12 @@ def test_bundle_script_materializes_expected_skill_tree(tmp_path) -> None:
             / "standalone"
             / "entrypoint.py"
         ).is_file()
+        skill_doc_text = skill_doc.read_text(encoding="utf-8")
+        run_script_text = run_script.read_text(encoding="utf-8")
+        assert "context: fork" in skill_doc_text
+        assert "agent: Explore" in skill_doc_text
+        assert "disable-model-invocation: true" in skill_doc_text
+        assert "asyncio.run(" in run_script_text
 
 
 def test_bundle_patches_vendored_core_init_to_avoid_transport_exports(tmp_path) -> None:

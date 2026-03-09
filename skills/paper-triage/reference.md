@@ -3,7 +3,6 @@
 ## Underlying Runtime
 
 - Installed entrypoint: `semantic_scholar_skills.standalone.run_paper_triage`
-- Installed dispatcher: `semantic_scholar_skills.standalone.run_workflow`
 - Engine workflow: `semantic_scholar_skills.engine.paper_triage.paper_triage`
 - Result model: `semantic_scholar_skills.engine.models.TriageResult`
 

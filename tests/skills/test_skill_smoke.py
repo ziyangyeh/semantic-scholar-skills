@@ -46,7 +46,7 @@ class FakeResult:
 
 
 @pytest.mark.parametrize(
-    ("skill_name", "argv", "expected_workflow", "expected_kwargs"),
+    ("skill_name", "argv", "expected_workflow", "expected_kwargs", "entrypoint_name"),
     [
         (
             "expand-references",
@@ -71,6 +71,7 @@ class FakeResult:
                 "recommendation_limit": 12,
                 "per_bucket_limit": 3,
             },
+            "run_expand_references",
         ),
         (
             "trace-citations",
@@ -98,6 +99,7 @@ class FakeResult:
                 "max_citations": 8,
                 "second_hop_limit": 4,
             },
+            "run_trace_citations",
         ),
         (
             "paper-triage",
@@ -126,6 +128,7 @@ class FakeResult:
                 "snippet_candidate_limit": 3,
                 "snippet_limit_per_paper": 2,
             },
+            "run_paper_triage",
         ),
     ],
 )
@@ -137,6 +140,7 @@ def test_generated_run_scripts_emit_success_contract(
     argv: list[str],
     expected_workflow: str,
     expected_kwargs: dict[str, object],
+    entrypoint_name: str,
 ) -> None:
     output_dir = tmp_path / "skills"
     build_bundle(output_dir)
@@ -147,18 +151,16 @@ def test_generated_run_scripts_emit_success_contract(
 
     recorded: dict[str, object] = {}
 
-    async def fake_run_workflow(workflow: str, **kwargs):
-        recorded["workflow"] = workflow
+    async def fake_entrypoint(**kwargs):
         recorded["kwargs"] = kwargs
-        return FakeResult({"echo": workflow, "kwargs": kwargs})
+        return FakeResult({"echo": expected_workflow, "kwargs": kwargs})
 
-    monkeypatch.setattr(standalone, "run_workflow", fake_run_workflow)
+    monkeypatch.setattr(standalone, entrypoint_name, fake_entrypoint)
 
     exit_code = run_module.main(argv)
     payload = json.loads(capsys.readouterr().out)
 
     assert exit_code == 0
-    assert recorded["workflow"] == expected_workflow
     assert recorded["kwargs"] == expected_kwargs
     assert payload["status"] == "ok"
     assert payload["workflow"] == expected_workflow
@@ -175,14 +177,14 @@ def test_generated_run_script_emits_error_contract(monkeypatch, tmp_path, capsys
         "paper_triage_run_error",
     )
 
-    async def fake_run_workflow(workflow: str, **kwargs):
+    async def fake_run_paper_triage(**kwargs):
         raise S2ValidationError(
             message="Query string cannot be empty",
             details={"hint": "Provide a non-empty paper query"},
             field="query",
         )
 
-    monkeypatch.setattr(standalone, "run_workflow", fake_run_workflow)
+    monkeypatch.setattr(standalone, "run_paper_triage", fake_run_paper_triage)
 
     exit_code = run_module.main(["bert"])
     payload = json.loads(capsys.readouterr().out)

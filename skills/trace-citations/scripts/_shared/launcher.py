@@ -120,13 +120,52 @@ def _error_payload(
     }
 
 
+def load_runtime():
+    return _load_runtime()
+
+
+def error_payload(
+    workflow: str,
+    *,
+    runtime_mode: str,
+    runtime_module: Any | None,
+    arguments: dict[str, Any],
+    exc: Exception,
+) -> dict[str, Any]:
+    return _error_payload(
+        workflow,
+        runtime_mode=runtime_mode,
+        runtime_module=runtime_module,
+        arguments=arguments,
+        exc=exc,
+    )
+
+
+def success_payload(
+    workflow: str,
+    *,
+    runtime_mode: str,
+    runtime_module: Any | None,
+    arguments: dict[str, Any],
+    result: Any,
+) -> dict[str, Any]:
+    return {
+        "schema_version": OUTPUT_SCHEMA_VERSION,
+        "workflow": workflow,
+        "status": "ok",
+        "runtime": _runtime_payload(runtime_mode, runtime_module),
+        "arguments": _serialize(arguments),
+        "result": _serialize(result),
+    }
+
+
 def launch(workflow: str, /, **kwargs: Any) -> LaunchResult:
     try:
-        runtime_mode, runtime_module = _load_runtime()
+        runtime_mode, runtime_module = load_runtime()
     except Exception as exc:
         return LaunchResult(
             exit_code=1,
-            payload=_error_payload(
+            payload=error_payload(
                 workflow,
                 runtime_mode="unavailable",
                 runtime_module=None,
@@ -140,7 +179,7 @@ def launch(workflow: str, /, **kwargs: Any) -> LaunchResult:
     except Exception as exc:
         return LaunchResult(
             exit_code=1,
-            payload=_error_payload(
+            payload=error_payload(
                 workflow,
                 runtime_mode=runtime_mode,
                 runtime_module=runtime_module,
@@ -149,14 +188,13 @@ def launch(workflow: str, /, **kwargs: Any) -> LaunchResult:
             ),
         )
 
-    payload = {
-        "schema_version": OUTPUT_SCHEMA_VERSION,
-        "workflow": workflow,
-        "status": "ok",
-        "runtime": _runtime_payload(runtime_mode, runtime_module),
-        "arguments": _serialize(kwargs),
-        "result": _serialize(result),
-    }
+    payload = success_payload(
+        workflow,
+        runtime_mode=runtime_mode,
+        runtime_module=runtime_module,
+        arguments=kwargs,
+        result=result,
+    )
     return LaunchResult(exit_code=0, payload=payload)
 
 

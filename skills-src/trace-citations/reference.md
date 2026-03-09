@@ -3,7 +3,6 @@
 ## Underlying Runtime
 
 - Installed entrypoint: `semantic_scholar_skills.standalone.run_trace_citations`
-- Installed dispatcher: `semantic_scholar_skills.standalone.run_workflow`
 - Engine workflow: `semantic_scholar_skills.engine.trace_citations.trace_citations`
 - Result model: `semantic_scholar_skills.engine.models.CitationTraceResult`
 

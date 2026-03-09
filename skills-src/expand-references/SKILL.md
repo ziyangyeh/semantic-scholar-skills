@@ -1,6 +1,8 @@
 ---
 name: expand-references
 description: Expand one to three seed papers into nearby, bridge, foundational, methodological, recent, and survey follow-ups
+context: fork
+agent: Explore
 disable-model-invocation: true
 user-invocable: true
 allowed-tools: Bash, Read

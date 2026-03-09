@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import asyncio
 from pathlib import Path
 import sys
 
@@ -18,7 +19,7 @@ def _configure_path() -> None:
 
 _configure_path()
 
-from _shared.launcher import dumps_payload, launch
+from _shared.launcher import dumps_payload, error_payload, load_runtime, success_payload
 
 WORKFLOW = "paper-triage"
 
@@ -77,18 +78,60 @@ def build_parser() -> argparse.ArgumentParser:
 
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
-    outcome = launch(
-        WORKFLOW,
-        query=" ".join(args.query),
-        api_key_override=args.api_key_override,
-        shortlist_size=args.shortlist_size,
-        relevance_limit=args.relevance_limit,
-        bulk_candidate_limit=args.bulk_candidate_limit,
-        snippet_candidate_limit=args.snippet_candidate_limit,
-        snippet_limit_per_paper=args.snippet_limit_per_paper,
+    workflow_kwargs = {
+        "query": " ".join(args.query),
+        "api_key_override": args.api_key_override,
+        "shortlist_size": args.shortlist_size,
+        "relevance_limit": args.relevance_limit,
+        "bulk_candidate_limit": args.bulk_candidate_limit,
+        "snippet_candidate_limit": args.snippet_candidate_limit,
+        "snippet_limit_per_paper": args.snippet_limit_per_paper,
+    }
+
+    try:
+        runtime_mode, runtime_module = load_runtime()
+    except Exception as exc:
+        print(
+            dumps_payload(
+                error_payload(
+                    WORKFLOW,
+                    runtime_mode="unavailable",
+                    runtime_module=None,
+                    arguments=workflow_kwargs,
+                    exc=exc,
+                )
+            )
+        )
+        return 1
+
+    try:
+        result = asyncio.run(runtime_module.run_paper_triage(**workflow_kwargs))
+    except Exception as exc:
+        print(
+            dumps_payload(
+                error_payload(
+                    WORKFLOW,
+                    runtime_mode=runtime_mode,
+                    runtime_module=runtime_module,
+                    arguments=workflow_kwargs,
+                    exc=exc,
+                )
+            )
+        )
+        return 1
+
+    print(
+        dumps_payload(
+            success_payload(
+                WORKFLOW,
+                runtime_mode=runtime_mode,
+                runtime_module=runtime_module,
+                arguments=workflow_kwargs,
+                result=result,
+            )
+        )
     )
-    print(dumps_payload(outcome.payload))
-    return outcome.exit_code
+    return 0
 
 
 if __name__ == "__main__":

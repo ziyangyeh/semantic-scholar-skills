@@ -1,6 +1,8 @@
 ---
 name: trace-citations
 description: Trace the citation neighborhood around one focal paper into foundations, descendants, bridges, weak edges, and optional second-hop links
+context: fork
+agent: Explore
 disable-model-invocation: true
 user-invocable: true
 allowed-tools: Bash, Read

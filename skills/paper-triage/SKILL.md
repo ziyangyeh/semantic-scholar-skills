@@ -1,6 +1,8 @@
 ---
 name: paper-triage
 description: Triage an ambiguous paper query into likely interpretations, a ranked shortlist, and recommended follow-up workflows
+context: fork
+agent: Explore
 disable-model-invocation: true
 user-invocable: true
 allowed-tools: Bash, Read

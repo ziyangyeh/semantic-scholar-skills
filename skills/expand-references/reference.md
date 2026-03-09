@@ -3,7 +3,6 @@
 ## Underlying Runtime
 
 - Installed entrypoint: `semantic_scholar_skills.standalone.run_expand_references`
-- Installed dispatcher: `semantic_scholar_skills.standalone.run_workflow`
 - Engine workflow: `semantic_scholar_skills.engine.expand_references.expand_references`
 - Result model: `semantic_scholar_skills.engine.models.ExpandReferencesResult`
 
