@@ -59,6 +59,12 @@ def _resolve_request_fields() -> list[str]:
     return list(RESOLVE_FIELDS)
 
 
+def _direct_lookup_identifier(match_type: Literal["doi", "paper_id"], normalized_query: str) -> str:
+    if match_type == "doi":
+        return f"DOI:{normalized_query}"
+    return normalized_query
+
+
 async def _hydrate_autocomplete_matches(
     client: S2Client,
     paper_ids: Sequence[str],
@@ -76,7 +82,7 @@ async def _hydrate_autocomplete_matches(
         return ()
 
     chunk_size = min(Config.MAX_BATCH_SIZE, 500)
-    hydrated: list[PaperSummary] = []
+    hydrated_by_id: dict[str, PaperSummary] = {}
     for index in range(0, len(deduped), chunk_size):
         chunk = deduped[index : index + chunk_size]
         response = await client.batch_papers(
@@ -84,9 +90,14 @@ async def _hydrate_autocomplete_matches(
             api_key_override=api_key_override,
         )
         for item in response:
-            if item:
-                hydrated.append(PaperSummary.from_api_response(item))
-    return tuple(hydrated)
+            if not isinstance(item, dict):
+                continue
+            paper_id = item.get("paperId")
+            if not paper_id:
+                continue
+            hydrated_by_id[str(paper_id)] = PaperSummary.from_api_response(item)
+
+    return tuple(hydrated_by_id[paper_id] for paper_id in deduped if paper_id in hydrated_by_id)
 
 
 async def resolve_paper(
@@ -104,7 +115,10 @@ async def resolve_paper(
     match_type = detect_query_kind(normalized_query)
     if match_type in {"doi", "paper_id"}:
         record = await client.get_paper(
-            PaperDetailsRequest(paper_id=normalized_query, fields=_resolve_request_fields()),
+            PaperDetailsRequest(
+                paper_id=_direct_lookup_identifier(match_type, normalized_query),
+                fields=_resolve_request_fields(),
+            ),
             api_key_override=api_key_override,
         )
         return ResolvedPaper(
@@ -143,21 +157,37 @@ async def resolve_paper(
                 paper=PaperSummary.from_api_response(primary_record),
             )
 
-    autocomplete = await client.autocomplete_papers(
-        PaperAutocompleteRequest(query=normalized_query),
-        api_key_override=api_key_override,
-    )
-    matches = autocomplete.get("matches", []) if isinstance(autocomplete, dict) else []
-    autocomplete_ids = [
-        match.get("paperId")
-        for match in matches
-        if isinstance(match, dict) and match.get("paperId")
-    ][:autocomplete_limit]
-    hydrated = await _hydrate_autocomplete_matches(
-        client,
-        autocomplete_ids,
-        api_key_override=api_key_override,
-    )
+    try:
+        autocomplete = await client.autocomplete_papers(
+            PaperAutocompleteRequest(query=normalized_query),
+            api_key_override=api_key_override,
+        )
+        matches = autocomplete.get("matches", []) if isinstance(autocomplete, dict) else []
+        autocomplete_ids = [
+            match.get("paperId")
+            for match in matches
+            if isinstance(match, dict) and match.get("paperId")
+        ][:autocomplete_limit]
+        hydrated = await _hydrate_autocomplete_matches(
+            client,
+            autocomplete_ids,
+            api_key_override=api_key_override,
+        )
+    except S2Error as exc:
+        if primary_record is None:
+            raise
+        return ResolvedPaper(
+            query=query,
+            normalized_query=normalized_query,
+            match_type="title",
+            source="title_match",
+            confidence=confidence,
+            paper=PaperSummary.from_api_response(primary_record),
+            notes=(
+                "Returning primary title match without alternatives because enrichment failed: "
+                f"{exc.message}",
+            ),
+        )
 
     if primary_record is not None:
         primary_paper = PaperSummary.from_api_response(primary_record)

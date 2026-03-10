@@ -159,13 +159,20 @@ def build_bundle(output_dir: Path = DEFAULT_OUTPUT_DIR) -> Path:
     return output_dir
 
 
+def _should_ignore_hash_path(relative_path: Path) -> bool:
+    return "__pycache__" in relative_path.parts or relative_path.suffix == ".pyc"
+
+
 def _collect_hashes(root: Path) -> dict[str, str]:
     if not root.exists():
         return {}
-    return {
-        path.relative_to(root).as_posix(): hashlib.sha256(path.read_bytes()).hexdigest()
-        for path in sorted(item for item in root.rglob("*") if item.is_file())
-    }
+    hashes: dict[str, str] = {}
+    for path in sorted(item for item in root.rglob("*") if item.is_file()):
+        relative_path = path.relative_to(root)
+        if _should_ignore_hash_path(relative_path):
+            continue
+        hashes[relative_path.as_posix()] = hashlib.sha256(path.read_bytes()).hexdigest()
+    return hashes
 
 
 def _diff_directories(expected_dir: Path, target_dir: Path) -> DriftReport:

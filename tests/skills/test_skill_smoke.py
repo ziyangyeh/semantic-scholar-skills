@@ -5,11 +5,11 @@ import json
 from pathlib import Path
 import subprocess
 import sys
+import types
 
 import pytest
 
 from semantic_scholar_skills.core.exceptions import S2ValidationError
-import semantic_scholar_skills.standalone as standalone
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 BUNDLE_SCRIPT = REPO_ROOT / "scripts" / "bundle_skills.py"
@@ -29,6 +29,11 @@ def build_bundle(output_dir: Path) -> None:
 def load_module(module_path: Path, module_name: str):
     for name in (module_name, "_shared", "_shared.launcher"):
         sys.modules.pop(name, None)
+    sys.path[:] = [
+        entry
+        for entry in sys.path
+        if not entry.replace("\\", "/").endswith("/_vendor")
+    ]
     spec = importlib.util.spec_from_file_location(module_name, module_path)
     assert spec is not None and spec.loader is not None
     module = importlib.util.module_from_spec(spec)
@@ -155,7 +160,20 @@ def test_generated_run_scripts_emit_success_contract(
         recorded["kwargs"] = kwargs
         return FakeResult({"echo": expected_workflow, "kwargs": kwargs})
 
-    monkeypatch.setattr(standalone, entrypoint_name, fake_entrypoint)
+    fake_runtime_module = types.SimpleNamespace(
+        __name__="semantic_scholar_skills.standalone",
+        __file__=str(
+            output_dir
+            / skill_name
+            / "scripts"
+            / "_vendor"
+            / "semantic_scholar_skills"
+            / "standalone"
+            / "__init__.py"
+        ),
+        **{entrypoint_name: fake_entrypoint},
+    )
+    monkeypatch.setattr(run_module, "load_runtime", lambda: ("vendored", fake_runtime_module))
 
     exit_code = run_module.main(argv)
     payload = json.loads(capsys.readouterr().out)
@@ -164,7 +182,8 @@ def test_generated_run_scripts_emit_success_contract(
     assert recorded["kwargs"] == expected_kwargs
     assert payload["status"] == "ok"
     assert payload["workflow"] == expected_workflow
-    assert payload["runtime"]["mode"] == "installed"
+    assert payload["runtime"]["mode"] == "vendored"
+    assert "_vendor" in payload["runtime"]["path"]
     assert payload["arguments"] == expected_kwargs
     assert payload["result"] == {"echo": expected_workflow, "kwargs": expected_kwargs}
 
@@ -184,7 +203,20 @@ def test_generated_run_script_emits_error_contract(monkeypatch, tmp_path, capsys
             field="query",
         )
 
-    monkeypatch.setattr(standalone, "run_paper_triage", fake_run_paper_triage)
+    fake_runtime_module = types.SimpleNamespace(
+        __name__="semantic_scholar_skills.standalone",
+        __file__=str(
+            output_dir
+            / "paper-triage"
+            / "scripts"
+            / "_vendor"
+            / "semantic_scholar_skills"
+            / "standalone"
+            / "__init__.py"
+        ),
+        run_paper_triage=fake_run_paper_triage,
+    )
+    monkeypatch.setattr(run_module, "load_runtime", lambda: ("vendored", fake_runtime_module))
 
     exit_code = run_module.main(["bert"])
     payload = json.loads(capsys.readouterr().out)
@@ -192,7 +224,8 @@ def test_generated_run_script_emits_error_contract(monkeypatch, tmp_path, capsys
     assert exit_code == 1
     assert payload["status"] == "error"
     assert payload["workflow"] == "paper-triage"
-    assert payload["runtime"]["mode"] == "installed"
+    assert payload["runtime"]["mode"] == "vendored"
+    assert "_vendor" in payload["runtime"]["path"]
     assert payload["error"]["type"] == "S2ValidationError"
     assert payload["error"]["field"] == "query"
     assert payload["error"]["details"]["hint"] == "Provide a non-empty paper query"

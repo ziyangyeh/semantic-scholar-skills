@@ -49,16 +49,23 @@ def _import_vendored_runtime():
 
 
 def _load_runtime():
-    try:
-        return "installed", _import_installed_runtime()
-    except (ImportError, ModuleNotFoundError) as installed_exc:
+    vendor_root = _vendor_root()
+    if vendor_root.is_dir():
         try:
             return "vendored", _import_vendored_runtime()
         except (ImportError, ModuleNotFoundError) as vendored_exc:
             raise RuntimeError(
-                "Unable to import Semantic Scholar standalone runtime via installed package or vendored bundle. "
-                f"Installed import failed with: {installed_exc!r}. Vendored import failed with: {vendored_exc!r}."
+                "Vendored Semantic Scholar standalone runtime is present but failed to import. "
+                f"Vendored import failed with: {vendored_exc!r}."
             ) from vendored_exc
+
+    try:
+        return "installed", _import_installed_runtime()
+    except (ImportError, ModuleNotFoundError) as installed_exc:
+        raise RuntimeError(
+            "Vendored runtime is missing and the installed Semantic Scholar standalone runtime could not be imported. "
+            f"Installed import failed with: {installed_exc!r}."
+        ) from installed_exc
 
 
 def _serialize(value: Any) -> Any:

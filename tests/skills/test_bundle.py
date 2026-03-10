@@ -129,3 +129,24 @@ def test_readme_documents_skills_as_repo_only_assets() -> None:
 
     assert "not included in the published wheel" in readme
     assert "clone the repository or copy a generated bundle" in readme
+
+
+def test_check_bundle_drift_ignores_python_bytecode_artifacts(tmp_path) -> None:
+    output_dir = tmp_path / "skills"
+    completed = run_bundle(output_dir)
+
+    assert completed.returncode == 0, completed.stderr
+
+    pycache_file = (
+        output_dir
+        / "paper-triage"
+        / "scripts"
+        / "_shared"
+        / "__pycache__"
+        / "launcher.cpython-312.pyc"
+    )
+    pycache_file.parent.mkdir(parents=True, exist_ok=True)
+    pycache_file.write_bytes(b"compiled-bytecode")
+
+    clean = run_drift_check(output_dir)
+    assert clean.returncode == 0, clean.stdout + clean.stderr
