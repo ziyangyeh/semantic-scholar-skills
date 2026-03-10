@@ -1,236 +1,212 @@
 # semantic-scholar-skills
 
-`semantic-scholar-skills` is a Semantic Scholar research toolkit built around one shared codebase:
+[![CI](https://github.com/zongmin-yu/semantic-scholar-skills/actions/workflows/ci.yml/badge.svg)](https://github.com/zongmin-yu/semantic-scholar-skills/actions/workflows/ci.yml)
+[![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/downloads/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
-- `semantic_scholar_skills.core` exposes typed request models, transport helpers, exceptions, and `S2Client`.
-- `semantic_scholar_skills.engine` turns raw API primitives into three higher-level workflows: `expand_references`, `trace_citations`, and `paper_triage`.
-- `skills/` tracks self-contained Claude-friendly bundles generated from `skills-src/` for source checkouts.
-- `semantic_scholar_skills.mcp` keeps the 16-tool MCP surface and optional HTTP bridge from the older server-first repo.
+**S2-first discovery engine for AI research workflows.**
 
-This repository is the successor to [`semantic-scholar-fastmcp-mcp-server`](https://github.com/zongmin-yu/semantic-scholar-fastmcp-mcp-server). The old repo remains the MCP-server-first implementation; this repo is the package-first continuation for reusable clients, workflows, and skill bundles.
+Three research workflows built on the Semantic Scholar API — available as a Python library, Claude Code skills, or a 16-tool MCP server.
 
-## What Ships
+## Workflows
 
-- Async core client with request models for papers, authors, snippets, and recommendations
-- Workflow engine for:
-  - expanding one to three seed papers into curated reading buckets
-  - tracing a paper’s citation neighborhood into foundations, descendants, bridges, and weak edges
-  - triaging ambiguous paper queries into a ranked shortlist with follow-up actions
-- Packaged MCP server with 16 tools and an optional FastAPI HTTP bridge
-- Offline pytest coverage across `contract/`, `core/`, `engine/`, `skills/`, and `standalone/` (`214` collected tests at the time of the initial release)
-- Repository-only assets in a source checkout:
-  - tracked generated skill bundles under `skills/`
-  - bundle-generation and audit scripts under `scripts/`
-  - these assets are not included in the published wheel
+### `/expand-references` — Discover related work from seed papers
 
-## Repository Layout
+Feed 1–3 seed papers. Get back curated buckets: foundational, methodological, recent, survey, bridge papers, and closest neighbors. Powered by S2's Recommendations API with positive/negative seeds.
 
-```text
-semantic-scholar-skills/
-├── src/semantic_scholar_skills/
-│   ├── core/
-│   ├── engine/
-│   ├── standalone/
-│   └── mcp/
-├── skills-src/
-├── skills/
-├── scripts/
-│   ├── bundle_skills.py
-│   ├── check_bundle_drift.py
-│   └── spec_audit.py
-└── tests/
+### `/trace-citations` — Map a paper's citation neighborhood
+
+Pick a focal paper. Trace its citations and references with context snippets, intent labels, and influence flags. Returns foundations, descendants, bridge connections, and optional second-hop expansion.
+
+### `/paper-triage` — Triage an ambiguous query into a shortlist
+
+Type a vague query. The engine runs autocomplete, relevance search, bulk search, and snippet extraction in parallel, then scores and ranks into a shortlist with explanations.
+
+## Quick Start
+
+### As Claude Code skills (copy & use)
+
+```bash
+# Copy any skill to your personal skills directory
+cp -r skills/expand-references ~/.claude/skills/
+
+# Then in Claude Code:
+/expand-references Attention Is All You Need
 ```
 
-## Installation
+Each skill is **fully self-contained** — no `pip install` required. The bundled standalone runtime uses only Python stdlib.
 
-### From source
+### As a Python library
+
+```bash
+pip install semantic-scholar-skills
+```
+
+```python
+import asyncio
+from semantic_scholar_skills.core import get_default_client, cleanup_client
+from semantic_scholar_skills.engine import paper_triage
+
+async def main():
+    client = get_default_client()
+    try:
+        result = await paper_triage(client, "retrieval augmented generation")
+        for paper in result.shortlist[:5]:
+            print(f"{paper.score:.2f}  {paper.paper.title}")
+    finally:
+        await cleanup_client()
+
+asyncio.run(main())
+```
+
+### As an MCP server
+
+```bash
+pip install semantic-scholar-skills
+semantic-scholar-skills-mcp
+```
+
+16 tools covering papers, authors, citations, recommendations, and snippets. Works with Claude Desktop, Cursor, and any MCP client.
+
+## Architecture
+
+```
+              Claude Code Skills          MCP Server (16 tools)
+                    │                           │
+                    ▼                           ▼
+            ┌─────────────┐             ┌─────────────┐
+            │  skills-src/ │             │    mcp/     │
+            │  (SKILL.md)  │             │  (FastMCP)  │
+            └──────┬───────┘             └──────┬──────┘
+                   │                            │
+                   ▼                            ▼
+            ┌──────────────────────────────────────┐
+            │         engine/ — Workflow Logic      │
+            │  expand_references · trace_citations  │
+            │  paper_triage · resolve · scoring     │
+            └──────────────────┬───────────────────┘
+                               │
+                   ┌───────────┴───────────┐
+                   ▼                       ▼
+            ┌─────────────┐         ┌─────────────┐
+            │   core/     │         │ standalone/  │
+            │  (httpx)    │         │  (urllib)    │
+            └─────────────┘         └─────────────┘
+                   │                       │
+                   └───────────┬───────────┘
+                               ▼
+                    Semantic Scholar API
+```
+
+**Source is shared, artifacts are self-contained.** The `engine/` and `standalone/` layers are vendored into each skill bundle by `bundle_skills.py`, so users can copy a single folder and it just works.
+
+## API Key (Optional)
+
+```bash
+export SEMANTIC_SCHOLAR_API_KEY=your-key-here
+```
+
+Without a key: 100 requests per 5 minutes. With a key: up to 10 req/s. Get one free at [semanticscholar.org/product/api](https://www.semanticscholar.org/product/api).
+
+## Skill Bundles
+
+The `skills/` directory contains pre-built, self-contained bundles for Claude Code:
+
+| Skill | What it does | Example |
+|-------|-------------|---------|
+| `expand-references` | Seed papers → curated reading buckets | `/expand-references "Attention Is All You Need"` |
+| `trace-citations` | Focal paper → citation lineage map | `/trace-citations "BERT: Pre-training of Deep Bidirectional Transformers"` |
+| `paper-triage` | Vague query → ranked shortlist | `/paper-triage retrieval augmented generation` |
+
+**Install**: Copy a skill folder to `~/.claude/skills/` (personal) or `.claude/skills/` (project-level).
+
+**No dependencies**: Each bundle includes a vendored runtime that uses only Python stdlib. If the full package is installed, it uses that instead for better performance.
+
+> Skill bundles are not included in the published wheel. To use them, clone the repository or copy a generated bundle from `skills/`.
+
+## MCP Server
+
+16 tools organized by domain:
+
+| Domain | Tools |
+|--------|-------|
+| **Papers** | `paper_relevance_search`, `paper_bulk_search`, `paper_title_search`, `paper_details`, `paper_batch_details`, `paper_authors`, `paper_citations`, `paper_references`, `paper_autocomplete`, `snippet_search` |
+| **Authors** | `author_search`, `author_details`, `author_papers`, `author_batch_details` |
+| **Recommendations** | `get_paper_recommendations_single`, `get_paper_recommendations_multi` |
+
+Configure for Claude Desktop (`~/.config/claude-desktop/config.json`):
+
+```json
+{
+  "mcpServers": {
+    "semantic-scholar": {
+      "command": "semantic-scholar-skills-mcp",
+      "env": {
+        "SEMANTIC_SCHOLAR_API_KEY": "your-key-here"
+      }
+    }
+  }
+}
+```
+
+## Python API
+
+### Core client — direct S2 API access
+
+```python
+from semantic_scholar_skills.core import get_default_client, PaperDetailsRequest
+
+client = get_default_client()
+paper = await client.get_paper(
+    PaperDetailsRequest(paper_id="CorpusId:215416146", fields=["title", "year", "authors"])
+)
+```
+
+### Engine — higher-level workflows
+
+```python
+from semantic_scholar_skills.engine import expand_references, trace_citations, paper_triage
+
+# Expand from seeds
+result = await expand_references(client, ["Attention Is All You Need"], per_bucket_limit=3)
+
+# Trace citation neighborhood
+result = await trace_citations(client, "BERT", max_references=50, max_citations=50)
+
+# Triage a query
+result = await paper_triage(client, "graph neural networks for molecules")
+```
+
+All engine functions return frozen dataclasses with `.to_dict()` for serialization.
+
+## Development
 
 ```bash
 git clone https://github.com/zongmin-yu/semantic-scholar-skills.git
 cd semantic-scholar-skills
-python3 -m pip install -e '.[test]'
-```
+pip install -e '.[test]'
 
-### From PyPI
-
-After the first tagged release:
-
-```bash
-python3 -m pip install semantic-scholar-skills
-```
-
-`pip install semantic-scholar-skills` installs the Python package under `src/semantic_scholar_skills`.
-It does not install the top-level `skills/`, `skills-src/`, `scripts/`, or `tests/` directories.
-
-## Configuration
-
-Set `SEMANTIC_SCHOLAR_API_KEY` for higher rate limits:
-
-```bash
-export SEMANTIC_SCHOLAR_API_KEY=your-api-key-here
-```
-
-If the key is unset, empty, or a placeholder such as `none`/`null`/`false`, the package falls back to unauthenticated access with stricter limits.
-
-Relevant runtime environment variables:
-
-- `SEMANTIC_SCHOLAR_API_KEY`
-- `SEMANTIC_SCHOLAR_TIMEOUT`
-- `SEMANTIC_SCHOLAR_ENABLE_HTTP_BRIDGE`
-- `SEMANTIC_SCHOLAR_HTTP_BRIDGE_HOST`
-- `SEMANTIC_SCHOLAR_HTTP_BRIDGE_PORT`
-
-## Python API
-
-### Core client
-
-```python
-import asyncio
-
-from semantic_scholar_skills.core import (
-    PaperDetailsRequest,
-    cleanup_client,
-    get_default_client,
-)
-
-
-async def main() -> None:
-    client = get_default_client()
-    try:
-        paper = await client.get_paper(
-            PaperDetailsRequest(
-                paper_id="CorpusId:215416146",
-                fields=["title", "year", "authors"],
-            )
-        )
-        print(paper["title"])
-    finally:
-        await cleanup_client()
-
-
-asyncio.run(main())
-```
-
-### Workflow engine
-
-```python
-import asyncio
-
-from semantic_scholar_skills.core import cleanup_client, get_default_client
-from semantic_scholar_skills.engine import expand_references
-
-
-async def main() -> None:
-    client = get_default_client()
-    try:
-        result = await expand_references(
-            client,
-            ["Attention Is All You Need"],
-            recommendation_pool="all-cs",
-            recommendation_limit=30,
-            per_bucket_limit=3,
-        )
-        print(result.to_dict()["closest_neighbors"][0]["paper"]["title"])
-    finally:
-        await cleanup_client()
-
-
-asyncio.run(main())
-```
-
-## Bundled Skills
-
-Tracked generated bundles live under `skills/` and are regenerated from `skills-src/`.
-These bundles are repository assets rather than wheel contents.
-If you installed from PyPI, clone the repository or copy a generated bundle before using the commands below.
-
-Available workflows:
-
-- `skills/expand-references`
-- `skills/trace-citations`
-- `skills/paper-triage`
-
-Regenerate or verify the tracked bundle:
-
-```bash
-python3 scripts/bundle_skills.py
-python3 scripts/check_bundle_drift.py
-```
-
-Run a bundled skill directly:
-
-```bash
-python3 skills/paper-triage/scripts/run.py "retrieval augmented generation"
-```
-
-Each bundled skill prints one JSON payload with:
-
-- `schema_version`
-- `workflow`
-- `status`
-- `runtime`
-- `arguments`
-- `result` or `error`
-
-See `skills-src/_shared/output_contract.md` for the stable output contract.
-
-## MCP Server
-
-The package still ships the full 16-tool MCP surface:
-
-- Papers:
-  - `paper_relevance_search`
-  - `paper_bulk_search`
-  - `paper_title_search`
-  - `paper_details`
-  - `paper_batch_details`
-  - `paper_authors`
-  - `paper_citations`
-  - `paper_references`
-  - `paper_autocomplete`
-  - `snippet_search`
-- Authors:
-  - `author_search`
-  - `author_details`
-  - `author_papers`
-  - `author_batch_details`
-- Recommendations:
-  - `get_paper_recommendations_single`
-  - `get_paper_recommendations_multi`
-
-Start the server with the packaged console entrypoint:
-
-```bash
-semantic-scholar-skills-mcp
-```
-
-or via the module path:
-
-```bash
-python3 -m semantic_scholar_skills.mcp.server
-```
-
-The optional HTTP bridge is enabled by default and uses:
-
-- `SEMANTIC_SCHOLAR_ENABLE_HTTP_BRIDGE`
-- `SEMANTIC_SCHOLAR_HTTP_BRIDGE_HOST`
-- `SEMANTIC_SCHOLAR_HTTP_BRIDGE_PORT`
-
-## Testing and Maintenance
-
-```bash
-pytest --collect-only -q tests
+# Run tests (offline, no API key needed)
 pytest -m "not live" -q
-python3 scripts/check_bundle_drift.py
-python3 scripts/spec_audit.py
+
+# Regenerate skill bundles
+python scripts/bundle_skills.py
+
+# Check bundle drift
+python scripts/check_bundle_drift.py
+
+# Audit S2 API field drift
+python scripts/spec_audit.py
 ```
 
-`spec_audit.py` compares the local field allowlists in `config.py` against the live Semantic Scholar Graph API schema. It returns a non-zero exit code only when real field drift is detected; transient fetch/format failures are logged as warnings and treated as non-blocking.
+## Background
 
-## Changelog
+This project is the successor to [`semantic-scholar-fastmcp-mcp-server`](https://github.com/zongmin-yu/semantic-scholar-fastmcp-mcp-server), which remains the MCP-server-only implementation (~100 stars). This repo adds the workflow engine and Claude Code skills while keeping full MCP parity.
 
-See `CHANGELOG.md`.
+## Semantic Scholar API Terms
+
+This project uses the [Semantic Scholar Academic Graph API](https://api.semanticscholar.org/) provided by the Allen Institute for AI. Please review the [API License Agreement](https://api.semanticscholar.org/license/) before use.
 
 ## License
 
-MIT. See `LICENSE`.
+MIT
