@@ -56,7 +56,7 @@ async def author_details(
     except S2ValidationError as exc:
         return s2_exception_to_error_response(exc)
     except S2ApiError as exc:
-        if "404" in exc.message:
+        if exc.status_code == 404:
             return create_error_response(
                 ErrorType.VALIDATION,
                 "Author not found",
@@ -86,7 +86,7 @@ async def author_papers(
     except S2ValidationError as exc:
         return s2_exception_to_error_response(exc)
     except S2ApiError as exc:
-        if "404" in exc.message:
+        if exc.status_code == 404:
             return create_error_response(
                 ErrorType.VALIDATION,
                 "Author not found",

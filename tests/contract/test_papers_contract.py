@@ -211,6 +211,34 @@ async def test_paper_title_search_404_maps_to_no_match(mock_make_request, mock_e
     )
 
 
+async def test_paper_title_search_404_mapping_uses_status_code_not_message(mock_make_request):
+    mock_make_request.install(papers_api).queue_responses(
+        {
+            "error": {
+                "type": "api_error",
+                "message": "paper missing from upstream",
+                "details": {"status_code": 404, "response": "missing"},
+            }
+        }
+    )
+
+    result = await papers_api.paper_title_search.fn(None, query="Attention is All You Need")
+
+    assert_validation_error(
+        result,
+        "No matching paper found",
+        {"original_query": "Attention is All You Need"},
+    )
+    assert_single_call(
+        mock_make_request,
+        endpoint="/paper/search/match",
+        params={
+            "query": "Attention is All You Need",
+            "fields": "title,abstract,year,citationCount,authors,url",
+        },
+    )
+
+
 async def test_paper_details_happy_path(mock_make_request):
     payload = {"paperId": "CorpusId:215416146", "title": "Attention"}
     mock_make_request.install(papers_api).queue_responses(payload)

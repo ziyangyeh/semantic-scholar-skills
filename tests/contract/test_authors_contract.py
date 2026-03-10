@@ -129,6 +129,27 @@ async def test_author_details_404_maps_to_author_not_found(mock_make_request, mo
     )
 
 
+async def test_author_details_404_mapping_uses_status_code_not_message(mock_make_request):
+    mock_make_request.install(authors_api).queue_responses(
+        {
+            "error": {
+                "type": "api_error",
+                "message": "author missing from upstream",
+                "details": {"status_code": 404, "response": "missing"},
+            }
+        }
+    )
+
+    result = await authors_api.author_details.fn(None, author_id="1741101", fields=["name", "hIndex"])
+
+    assert_validation_error(result, "Author not found", {"author_id": "1741101"})
+    assert_single_call(
+        mock_make_request,
+        endpoint="/author/1741101",
+        params={"fields": "name,hIndex"},
+    )
+
+
 async def test_author_papers_happy_path(mock_make_request):
     payload = {"offset": 0, "next": 10, "data": [{"paperId": "p1"}]}
     mock_make_request.install(authors_api).queue_responses(payload)

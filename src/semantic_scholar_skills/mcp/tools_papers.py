@@ -125,7 +125,7 @@ async def paper_title_search(
     except S2ValidationError as exc:
         return s2_exception_to_error_response(exc)
     except S2ApiError as exc:
-        if "404" in exc.message:
+        if exc.status_code == 404:
             return create_error_response(
                 ErrorType.VALIDATION,
                 "No matching paper found",
@@ -148,7 +148,7 @@ async def paper_details(
     except S2ValidationError as exc:
         return s2_exception_to_error_response(exc)
     except S2ApiError as exc:
-        if "404" in exc.message:
+        if exc.status_code == 404:
             return create_error_response(
                 ErrorType.VALIDATION,
                 "Paper not found",
@@ -193,7 +193,7 @@ async def paper_authors(
     except S2ValidationError as exc:
         return s2_exception_to_error_response(exc)
     except S2ApiError as exc:
-        if "404" in exc.message:
+        if exc.status_code == 404:
             return create_error_response(
                 ErrorType.VALIDATION,
                 "Paper not found",
@@ -223,7 +223,7 @@ async def paper_citations(
     except S2ValidationError as exc:
         return s2_exception_to_error_response(exc)
     except S2ApiError as exc:
-        if "404" in exc.message:
+        if exc.status_code == 404:
             return create_error_response(
                 ErrorType.VALIDATION,
                 "Paper not found",
@@ -253,7 +253,7 @@ async def paper_references(
     except S2ValidationError as exc:
         return s2_exception_to_error_response(exc)
     except S2ApiError as exc:
-        if "404" in exc.message:
+        if exc.status_code == 404:
             return create_error_response(
                 ErrorType.VALIDATION,
                 "Paper not found",
