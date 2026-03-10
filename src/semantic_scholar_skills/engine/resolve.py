@@ -157,21 +157,37 @@ async def resolve_paper(
                 paper=PaperSummary.from_api_response(primary_record),
             )
 
-    autocomplete = await client.autocomplete_papers(
-        PaperAutocompleteRequest(query=normalized_query),
-        api_key_override=api_key_override,
-    )
-    matches = autocomplete.get("matches", []) if isinstance(autocomplete, dict) else []
-    autocomplete_ids = [
-        match.get("paperId")
-        for match in matches
-        if isinstance(match, dict) and match.get("paperId")
-    ][:autocomplete_limit]
-    hydrated = await _hydrate_autocomplete_matches(
-        client,
-        autocomplete_ids,
-        api_key_override=api_key_override,
-    )
+    try:
+        autocomplete = await client.autocomplete_papers(
+            PaperAutocompleteRequest(query=normalized_query),
+            api_key_override=api_key_override,
+        )
+        matches = autocomplete.get("matches", []) if isinstance(autocomplete, dict) else []
+        autocomplete_ids = [
+            match.get("paperId")
+            for match in matches
+            if isinstance(match, dict) and match.get("paperId")
+        ][:autocomplete_limit]
+        hydrated = await _hydrate_autocomplete_matches(
+            client,
+            autocomplete_ids,
+            api_key_override=api_key_override,
+        )
+    except S2Error as exc:
+        if primary_record is None:
+            raise
+        return ResolvedPaper(
+            query=query,
+            normalized_query=normalized_query,
+            match_type="title",
+            source="title_match",
+            confidence=confidence,
+            paper=PaperSummary.from_api_response(primary_record),
+            notes=(
+                "Returning primary title match without alternatives because enrichment failed: "
+                f"{exc.message}",
+            ),
+        )
 
     if primary_record is not None:
         primary_paper = PaperSummary.from_api_response(primary_record)

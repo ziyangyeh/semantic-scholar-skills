@@ -7,6 +7,7 @@ from semantic_scholar_skills.core import (
     PaperBatchDetailsRequest,
     PaperDetailsRequest,
     PaperTitleSearchRequest,
+    S2ApiError,
     S2NotFoundError,
 )
 from semantic_scholar_skills.engine.resolve import (
@@ -99,6 +100,44 @@ async def test_resolve_paper_uses_title_match_before_autocomplete(stub_s2_client
             ),
         )
     ]
+
+
+@pytest.mark.asyncio
+async def test_resolve_paper_returns_primary_title_match_when_autocomplete_enrichment_fails(
+    stub_s2_client,
+    sample_paper_record,
+) -> None:
+    stub_s2_client.queue("match_paper_title", sample_paper_record)
+    stub_s2_client.queue("autocomplete_papers", S2ApiError(message="autocomplete unavailable"))
+
+    resolved = await resolve_paper(stub_s2_client, "Attention Is All You Need")
+
+    assert resolved.source == "title_match"
+    assert resolved.paper.paper_id == "p-attn"
+    assert resolved.alternatives == ()
+    assert resolved.notes == (
+        "Returning primary title match without alternatives because enrichment failed: autocomplete unavailable",
+    )
+
+
+@pytest.mark.asyncio
+async def test_resolve_paper_returns_primary_title_match_when_batch_hydration_fails(
+    stub_s2_client,
+    sample_paper_record,
+    sample_autocomplete_payload,
+) -> None:
+    stub_s2_client.queue("match_paper_title", sample_paper_record)
+    stub_s2_client.queue("autocomplete_papers", sample_autocomplete_payload)
+    stub_s2_client.queue("batch_papers", S2ApiError(message="batch unavailable"))
+
+    resolved = await resolve_paper(stub_s2_client, "Attention Is All You Need")
+
+    assert resolved.source == "title_match"
+    assert resolved.paper.paper_id == "p-attn"
+    assert resolved.alternatives == ()
+    assert resolved.notes == (
+        "Returning primary title match without alternatives because enrichment failed: batch unavailable",
+    )
 
 
 @pytest.mark.asyncio
