@@ -4,7 +4,7 @@
 
 - `semantic_scholar_skills.core` exposes typed request models, transport helpers, exceptions, and `S2Client`.
 - `semantic_scholar_skills.engine` turns raw API primitives into three higher-level workflows: `expand_references`, `trace_citations`, and `paper_triage`.
-- `skills/` ships self-contained Claude-friendly bundles generated from `skills-src/`.
+- `skills/` tracks self-contained Claude-friendly bundles generated from `skills-src/` for source checkouts.
 - `semantic_scholar_skills.mcp` keeps the 16-tool MCP surface and optional HTTP bridge from the older server-first repo.
 
 This repository is the successor to [`semantic-scholar-fastmcp-mcp-server`](https://github.com/zongmin-yu/semantic-scholar-fastmcp-mcp-server). The old repo remains the MCP-server-first implementation; this repo is the package-first continuation for reusable clients, workflows, and skill bundles.
@@ -16,9 +16,12 @@ This repository is the successor to [`semantic-scholar-fastmcp-mcp-server`](http
   - expanding one to three seed papers into curated reading buckets
   - tracing a paper’s citation neighborhood into foundations, descendants, bridges, and weak edges
   - triaging ambiguous paper queries into a ranked shortlist with follow-up actions
-- Tracked generated skill bundles under `skills/`
 - Packaged MCP server with 16 tools and an optional FastAPI HTTP bridge
 - Offline pytest coverage across `contract/`, `core/`, `engine/`, `skills/`, and `standalone/` (`214` collected tests at the time of the initial release)
+- Repository-only assets in a source checkout:
+  - tracked generated skill bundles under `skills/`
+  - bundle-generation and audit scripts under `scripts/`
+  - these assets are not included in the published wheel
 
 ## Repository Layout
 
@@ -55,6 +58,9 @@ After the first tagged release:
 ```bash
 python3 -m pip install semantic-scholar-skills
 ```
+
+`pip install semantic-scholar-skills` installs the Python package under `src/semantic_scholar_skills`.
+It does not install the top-level `skills/`, `skills-src/`, `scripts/`, or `tests/` directories.
 
 ## Configuration
 
@@ -135,6 +141,8 @@ asyncio.run(main())
 ## Bundled Skills
 
 Tracked generated bundles live under `skills/` and are regenerated from `skills-src/`.
+These bundles are repository assets rather than wheel contents.
+If you installed from PyPI, clone the repository or copy a generated bundle before using the commands below.
 
 Available workflows:
 

@@ -3,6 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 import subprocess
 import sys
+from zipfile import ZipFile
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 BUNDLE_SCRIPT = REPO_ROOT / "scripts" / "bundle_skills.py"
@@ -23,6 +24,16 @@ def run_bundle(output_dir: Path) -> subprocess.CompletedProcess[str]:
 def run_drift_check(output_dir: Path) -> subprocess.CompletedProcess[str]:
     return subprocess.run(
         [sys.executable, str(DRIFT_SCRIPT), "--output-dir", str(output_dir)],
+        cwd=REPO_ROOT,
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+
+
+def build_wheel(output_dir: Path) -> subprocess.CompletedProcess[str]:
+    return subprocess.run(
+        [sys.executable, "-m", "pip", "wheel", ".", "--no-deps", "--wheel-dir", str(output_dir)],
         cwd=REPO_ROOT,
         text=True,
         capture_output=True,
@@ -96,3 +107,25 @@ def test_check_bundle_drift_reports_manual_edits(tmp_path) -> None:
     dirty = run_drift_check(output_dir)
     assert dirty.returncode == 1
     assert "paper-triage/reference.md" in (dirty.stdout + dirty.stderr)
+
+
+def test_wheel_excludes_repo_only_skill_assets(tmp_path) -> None:
+    wheel_dir = tmp_path / "wheel"
+    completed = build_wheel(wheel_dir)
+
+    assert completed.returncode == 0, completed.stderr
+
+    [wheel_path] = wheel_dir.glob("semantic_scholar_skills-*.whl")
+    with ZipFile(wheel_path) as archive:
+        names = archive.namelist()
+
+    assert not any(name.startswith("skills/") for name in names)
+    assert not any(name.startswith("scripts/") for name in names)
+    assert not any(name.startswith("tests/") for name in names)
+
+
+def test_readme_documents_skills_as_repo_only_assets() -> None:
+    readme = (REPO_ROOT / "README.md").read_text(encoding="utf-8")
+
+    assert "not included in the published wheel" in readme
+    assert "clone the repository or copy a generated bundle" in readme

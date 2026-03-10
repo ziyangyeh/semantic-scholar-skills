@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "semantic-scholar-skills"
 version = "0.1.0"
-description = "Semantic Scholar research workflows, self-contained skill bundles, and MCP/HTTP interfaces."
+description = "Semantic Scholar research workflows, standalone runtime, and MCP/HTTP interfaces."
 readme = "README.md"
 requires-python = ">=3.10"
 license = { file = "LICENSE" }
