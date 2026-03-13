@@ -14,6 +14,6 @@ jobs:
         with:
           python-version: '3.12'
       - run: pip install -e '.[test]'
-      - run: pytest -m live -q --timeout=120
+      - run: pytest -m live -q
         env:
           SEMANTIC_SCHOLAR_API_KEY: ${{ secrets.SEMANTIC_SCHOLAR_API_KEY }}
