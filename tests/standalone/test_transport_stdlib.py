@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from datetime import datetime, timedelta, timezone
+from email.utils import format_datetime
 from io import BytesIO
 import json
 import socket
@@ -209,6 +211,50 @@ async def test_stdlib_transport_retries_http_429_and_honors_retry_after_header(
     assert result == {"ok": True}
     assert len(fake_opener_queue.calls) == 2
     assert recorded_sleep.calls == [7.0]
+
+
+@pytest.mark.asyncio
+async def test_stdlib_transport_retries_http_429_and_honors_http_date_retry_after_header(
+    monkeypatch,
+    fake_opener_queue,
+    recorded_sleep,
+    fixed_clock,
+) -> None:
+    monkeypatch.delenv("SEMANTIC_SCHOLAR_API_KEY", raising=False)
+    retry_after = format_datetime(datetime.now(timezone.utc) + timedelta(seconds=7), usegmt=True)
+    fake_opener_queue.queue(
+        make_http_error(429, url=f"{Config.BASE_URL}/paper/search", headers={"Retry-After": retry_after}),
+        FakeResponse(payload={"ok": True}),
+    )
+    transport = StdlibTransport(opener=fake_opener_queue, sleeper=recorded_sleep, clock=fixed_clock)
+
+    result = await transport.request_json("/paper/search")
+
+    assert result == {"ok": True}
+    assert len(fake_opener_queue.calls) == 2
+    assert len(recorded_sleep.calls) == 1
+    assert recorded_sleep.calls[0] == pytest.approx(7.0, abs=1.0)
+
+
+@pytest.mark.asyncio
+async def test_stdlib_transport_falls_back_to_exponential_backoff_when_retry_after_is_unparseable(
+    monkeypatch,
+    fake_opener_queue,
+    recorded_sleep,
+    fixed_clock,
+) -> None:
+    monkeypatch.delenv("SEMANTIC_SCHOLAR_API_KEY", raising=False)
+    fake_opener_queue.queue(
+        make_http_error(429, url=f"{Config.BASE_URL}/paper/search", headers={"Retry-After": "not-a-date"}),
+        FakeResponse(payload={"ok": True}),
+    )
+    transport = StdlibTransport(opener=fake_opener_queue, sleeper=recorded_sleep, clock=fixed_clock)
+
+    result = await transport.request_json("/paper/search")
+
+    assert result == {"ok": True}
+    assert len(fake_opener_queue.calls) == 2
+    assert recorded_sleep.calls == [0.5]
 
 
 @pytest.mark.asyncio

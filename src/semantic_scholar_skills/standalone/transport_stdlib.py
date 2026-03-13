@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import asyncio
+from datetime import datetime, timezone
+from email.utils import parsedate_to_datetime
 import json
 import logging
 import os
@@ -122,6 +124,21 @@ class _RetryableHttpError(Exception):
         super().__init__(f"HTTP error: {status_code}")
 
 
+def _retry_after_delay_seconds(retry_after: str | None) -> float | None:
+    if not retry_after:
+        return None
+    try:
+        return max(0.0, float(retry_after))
+    except ValueError:
+        try:
+            parsed_dt = parsedate_to_datetime(retry_after)
+        except (TypeError, ValueError, IndexError, OverflowError):
+            return None
+        if parsed_dt.tzinfo is None:
+            parsed_dt = parsed_dt.replace(tzinfo=timezone.utc)
+        return max(0.0, (parsed_dt - datetime.now(timezone.utc)).total_seconds())
+
+
 class StdlibTransport:
     def __init__(
         self,
@@ -194,8 +211,9 @@ class StdlibTransport:
                         base_url=base_url,
                         response_text=exc.response_text,
                     )
-                if exc.status_code == 429 and exc.retry_after:
-                    await self._sleeper(float(exc.retry_after))
+                retry_delay = _retry_after_delay_seconds(exc.retry_after)
+                if exc.status_code == 429 and retry_delay is not None:
+                    await self._sleeper(retry_delay)
                 else:
                     await self._sleeper(self._retry_backoff_seconds * (2**attempt))
             except (urllib.error.URLError, socket.timeout, TimeoutError) as exc:
