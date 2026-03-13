@@ -58,14 +58,14 @@ def hydrated_recommendation_batch() -> list[dict[str, object]]:
         },
         {
             "paperId": "p-recent",
-            "title": "Adaptive Retrieval for Long-Context Language Models",
-            "abstract": "Recent retrieval modeling paper.",
+            "title": "Long-Context Evidence in Emerging Applications",
+            "abstract": "Recent empirical results on long-context evidence use at scale.",
             "year": CURRENT_YEAR,
             "venue": "ICLR",
             "authors": [{"authorId": "r1", "name": "Recent Author"}],
             "citationCount": 600,
             "influentialCitationCount": 80,
-            "fieldsOfStudy": ["Computer Science", "Natural Language Processing"],
+            "fieldsOfStudy": ["Natural Language Processing"],
             "publicationTypes": ["Conference"],
         },
         {
@@ -77,7 +77,7 @@ def hydrated_recommendation_batch() -> list[dict[str, object]]:
             "authors": [{"authorId": "m1", "name": "Method Author"}],
             "citationCount": 1200,
             "influentialCitationCount": 120,
-            "fieldsOfStudy": ["Computer Science", "Natural Language Processing"],
+            "fieldsOfStudy": ["Natural Language Processing"],
             "publicationTypes": ["Conference"],
         },
         {
@@ -288,6 +288,37 @@ async def test_expand_references_builds_bridge_bucket_for_cross_seed_connector(
     result = await expand_references(stub_s2_client, ["seed one", "seed two"])
 
     assert "p-bridge" in [paper.paper.paper_id for paper in result.bridge_papers]
+
+
+@pytest.mark.asyncio
+async def test_expand_references_prioritizes_bridge_bucket_over_recent_and_methodological_for_single_label_classification(
+    stub_s2_client,
+    resolved_positive_seed_records,
+) -> None:
+    queue_seed_resolution(stub_s2_client, *resolved_positive_seed_records)
+    candidate = {
+        "paperId": "p-bridge-recent-method",
+        "title": "A Retrieval Framework for Connecting Evidence",
+        "abstract": "This method connects search and question answering across tasks.",
+        "year": CURRENT_YEAR,
+        "venue": "ICLR",
+        "authors": [{"authorId": "b2", "name": "Bridge Method Author"}],
+        "citationCount": 4000,
+        "influentialCitationCount": 400,
+        "fieldsOfStudy": ["Computer Science", "Information Retrieval", "Natural Language Processing"],
+        "publicationTypes": ["Conference"],
+    }
+    stub_s2_client.queue(
+        "recommend_from_papers",
+        {"recommendedPapers": [{"paperId": candidate["paperId"], "title": candidate["title"]}]},
+    )
+    stub_s2_client.queue("batch_papers", [candidate])
+
+    result = await expand_references(stub_s2_client, ["seed one", "seed two"])
+
+    assert [paper.paper.paper_id for paper in result.bridge_papers] == ["p-bridge-recent-method"]
+    assert result.methodological == ()
+    assert result.recent == ()
 
 
 @pytest.mark.asyncio

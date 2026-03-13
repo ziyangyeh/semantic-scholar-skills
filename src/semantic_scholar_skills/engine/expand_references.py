@@ -98,12 +98,12 @@ def _classify_candidate(
         and citation_impact_score(paper.citation_count, paper.influential_citation_count) >= 0.55
     ):
         return "foundational", tuple(matched_seed_ids)
-    if paper.year is not None and paper.year >= CURRENT_YEAR - 3:
-        return "recent", tuple(matched_seed_ids)
-    if any(keyword in text for keyword in METHOD_KEYWORDS):
-        return "methodological", tuple(matched_seed_ids)
     if len(resolved_seeds) >= 2 and len(set(matched_seed_ids)) >= 2 and score >= 0.45:
         return "bridge_papers", tuple(dict.fromkeys(matched_seed_ids))
+    if any(keyword in text for keyword in METHOD_KEYWORDS):
+        return "methodological", tuple(matched_seed_ids)
+    if paper.year is not None and paper.year >= CURRENT_YEAR - 3:
+        return "recent", tuple(matched_seed_ids)
     return None, tuple(dict.fromkeys(matched_seed_ids))
 
 
