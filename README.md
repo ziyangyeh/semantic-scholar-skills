@@ -221,6 +221,8 @@ python scripts/spec_audit.py
 
 This project is the successor to [`semantic-scholar-fastmcp-mcp-server`](https://github.com/zongmin-yu/semantic-scholar-fastmcp-mcp-server), which remains the MCP-server-only implementation (~100 stars). This repo adds the workflow engine and Claude Code skills while keeping full MCP parity.
 
+> **Just need the MCP server?** [`semantic-scholar-fastmcp-mcp-server`](https://github.com/zongmin-yu/semantic-scholar-fastmcp-mcp-server) is a lighter standalone option with the same 16 tools — no workflow engine or skills overhead.
+
 ## Semantic Scholar API Terms
 
 This project uses the [Semantic Scholar Academic Graph API](https://api.semanticscholar.org/) provided by the Allen Institute for AI. Please review the [API License Agreement](https://api.semanticscholar.org/license/) before use.
