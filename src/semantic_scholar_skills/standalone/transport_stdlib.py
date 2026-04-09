@@ -35,12 +35,18 @@ def _get_api_key(api_key_override: str | None = None) -> str | None:
     if normalized:
         return normalized
     env_value = _normalize_key(os.getenv("SEMANTIC_SCHOLAR_API_KEY"))
+    if env_value:
+        return env_value
+    if os.getenv("SEMANTIC_SCHOLAR_API_KEY"):
+        logger.warning("SEMANTIC_SCHOLAR_API_KEY is set to a placeholder value; treating as not set.")
+    try:
+        from dotenv import load_dotenv
+        load_dotenv(os.path.expanduser("~/.env"), override=False)
+    except ImportError:
+        pass
+    env_value = _normalize_key(os.getenv("SEMANTIC_SCHOLAR_API_KEY"))
     if env_value is None:
-        raw_value = os.getenv("SEMANTIC_SCHOLAR_API_KEY")
-        if raw_value:
-            logger.warning("SEMANTIC_SCHOLAR_API_KEY is set to a placeholder value; treating as not set.")
-        else:
-            logger.warning("No SEMANTIC_SCHOLAR_API_KEY set. Using unauthenticated access with lower rate limits.")
+        logger.warning("No SEMANTIC_SCHOLAR_API_KEY set. Using unauthenticated access with lower rate limits.")
     return env_value
 
 
