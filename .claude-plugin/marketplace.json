@@ -1,0 +1,14 @@
+{
+  "name": "semantic-scholar-skills",
+  "owner": {
+    "name": "zongmin-yu"
+  },
+  "plugins": [
+    {
+      "name": "semantic-scholar",
+      "source": "./",
+      "description": "Research operators for paper triage, reference expansion, and citation tracing via Semantic Scholar API",
+      "version": "0.1.0"
+    }
+  ]
+}
